@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# Local build dependencies (compiler + clangd — downloaded/generated locally)
+build/
+
+# Local IDE config
+.oicpp/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+
+# Package lock (optional — uncomment if you prefer lockfile-free repo)
+# package-lock.json
+
+# Temp
+tmp/
+temp/
+*.tmp
+# Office temp files
+~$*

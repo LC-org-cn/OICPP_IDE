@@ -1,0 +1,1717 @@
+/* =============================================================
+   modern.css — 现代化 UI 覆盖层（Fluent / WinUI / VS Code 风格）
+   -------------------------------------------------------------
+   本文件在所有样式之后加载，为整个 IDE 提供统一的设计令牌
+   （圆角、阴影、过渡）与悬浮圆角面板布局：
+     - 主窗口以 body:has(> .main-container) 作用域限定，
+       不影响设置窗口 / PDF 查看器的布局。
+     - 表面色尽量由既有主题变量经 color-mix 派生，
+       因此全部主题（dark/light/monokai/github/solarized/dracula）
+       与毛玻璃模式自动适配。
+   ============================================================= */
+
+/* ---------------------------------------------------------
+   0. 设计令牌
+   --------------------------------------------------------- */
+body {
+    /* 圆角体系：WinUI 控件 4-6px，卡片/面板 8-10px，胶囊 999px */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-pill: 999px;
+
+    /* 派生表面：面板间隙透出的应用底色（比编辑区更暗一档） */
+    --app-bg: color-mix(in srgb, var(--bg-color) 88%, #000);
+    --panel-border: color-mix(in srgb, var(--border-color) 60%, transparent);
+    --hover-soft: color-mix(in srgb, var(--text-color) 8%, transparent);
+    --hover-soft-strong: color-mix(in srgb, var(--text-color) 13%, transparent);
+
+    /* 阴影层级：面板 / 浮出层（菜单）/ 模态对话框 */
+    --panel-shadow: 0 1px 3px rgba(0, 0, 0, 0.10);
+    --flyout-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18);
+    --dialog-shadow: 0 16px 48px rgba(0, 0, 0, 0.38), 0 4px 14px rgba(0, 0, 0, 0.24);
+
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+    /* WinUI 质感：优先使用 Windows 11 系统字体；中文显式指定微软雅黑 UI */
+    font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', -apple-system,
+        BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans',
+        'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* ---------------------------------------------------------
+   1. 主题色板现代化（默认深色 / 浅色 → Modern 风格）
+   --------------------------------------------------------- */
+body,
+body.theme-dark,
+body[data-theme="dark"] {
+    --bg-color: #1b1b1b;
+    --card-bg: #202020;
+    --sidebar-bg: #1b1b1b;
+    --titlebar-bg: #1b1b1b;
+    --statusbar-bg: #1b1b1b;
+    --activity-bar-bg: #1b1b1b;
+    --sidebar-header-bg: #1b1b1b;
+    --border-color: #333333;
+    --hover-bg: #2c2c2c;
+    --input-bg: #2a2a2a;
+    --input-border: #3d3d3d;
+    --menu-bg: #1f1f1f;
+    --primary-color: #0078d4;
+    --primary-color-hover: #2b88d8;
+    --secondary-bg: #333333;
+    --secondary-bg-hover: #3f3f3f;
+    --tab-bg: #1b1b1b;
+    --tab-hover-bg: #262626;
+    --tab-active-bg: #1e1e1e;
+    --tab-border-color: #333333;
+    --list-selection-bg: #2f3337;
+    --list-active-bg: #26292c;
+    /* 灰黑间隙底色：比面板低两档而非纯黑，层次柔和可辨 */
+    --app-bg: #161616;
+}
+
+body.theme-light,
+body[data-theme="light"],
+body[data-editor-theme="light"] {
+    --bg-color: #f8f8f8;
+    --card-bg: #ffffff;
+    --sidebar-bg: #f8f8f8;
+    --titlebar-bg: #f8f8f8;
+    --statusbar-bg: #f8f8f8;
+    --activity-bar-bg: #f8f8f8;
+    --sidebar-header-bg: #f8f8f8;
+    --border-color: #e5e5e5;
+    --hover-bg: #ececec;
+    --input-bg: #ffffff;
+    --input-border: #cccccc;
+    --menu-bg: #ffffff;
+    --primary-color: #005fb8;
+    --primary-color-hover: #0f62bd;
+    --tab-bg: #f8f8f8;
+    --tab-hover-bg: #ececec;
+    --tab-active-bg: #ffffff;
+    --tab-border-color: #e5e5e5;
+    --list-selection-bg: #cfe3f7;
+    --list-active-bg: #e8e8e8;
+    --app-bg: #e0e0e0;
+}
+
+/* 具名主题仅微调面板间隙底色，保持各自气质 */
+body[data-theme="monokai"]         { --app-bg: #1c1d18; }
+body[data-theme="github-light"]    { --app-bg: #f0f3f6; }
+body[data-theme="github-dark"]     { --app-bg: #010409; }
+body[data-theme="solarized-light"] { --app-bg: #e9e1cb; }
+body[data-theme="solarized-dark"]  { --app-bg: #001d26; }
+body[data-theme="dracula"]         { --app-bg: #1a1b23; }
+
+/* ---------------------------------------------------------
+   2. 滚动条：悬浮式圆角胶囊
+   --------------------------------------------------------- */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-color) 20%, transparent);
+    border-radius: var(--radius-pill);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    min-height: 32px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--text-color) 34%, transparent);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: color-mix(in srgb, var(--text-color) 45%, transparent);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+/* ---------------------------------------------------------
+   3. 主窗口框架：悬浮圆角面板布局
+   （标题栏 / 侧栏 / 编辑区 / 状态栏各自成为独立圆角面板，
+     面板之间留出透出 --app-bg 的间隙）
+   --------------------------------------------------------- */
+body:has(> .main-container) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 6px;
+    gap: 6px;
+    background-color: var(--app-bg);
+}
+
+body:has(> .main-container) .main-container {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    gap: 8px;
+    background: transparent;
+}
+
+/* 统一以 0-2-1 特异性覆盖主题级规则 */
+body:has(> .main-container) :is(.titlebar, .sidebar, .sidebar-panel, .editor-container, .status-bar) {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--panel-shadow);
+}
+
+/* --- 标题栏 --- */
+body:has(> .main-container) :is(.titlebar) {
+    flex: 0 0 auto;
+    height: 38px;
+    background-color: var(--titlebar-bg);
+    overflow: visible;
+}
+
+body .titlebar-left {
+    padding-left: 10px;
+}
+
+body .app-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+/* 菜单：圆角悬浮项（Fluent 风格） */
+body .menu-bar {
+    gap: 2px;
+    padding-left: 6px;
+}
+
+body .menu-item {
+    height: 26px;
+    margin: 0 1px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.08s var(--ease-out);
+}
+
+body .menu-item:hover,
+body .menu-item.active {
+    background-color: var(--hover-soft);
+}
+
+body .menu-dropdown {
+    opacity: 0;
+    visibility: hidden;
+    top: 100%;
+    min-width: 220px;
+    padding: 5px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--panel-border);
+    background-color: var(--menu-bg);
+    box-shadow: var(--flyout-shadow);
+    transform-origin: top left;
+    transform: translateY(-6px) scale(0.98);
+    transition: opacity 0.08s var(--ease-out), visibility 0s, transform 0.08s var(--ease-out);
+}
+
+body .menu-item:hover .menu-dropdown,
+body .menu-item.active .menu-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+body .menu-dropdown-item {
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.12s var(--ease-out);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+body .menu-dropdown-item .menu-check {
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+    visibility: hidden;
+    font-size: 12px;
+}
+
+body .menu-dropdown-item.checked .menu-check {
+    visibility: visible;
+}
+
+body .menu-dropdown-item .menu-label-text {
+    flex: 1;
+}
+
+body .menu-dropdown-item .menu-shortcut {
+    margin-left: auto;
+}
+
+body .menu-dropdown-item:hover {
+    background-color: var(--hover-soft);
+}
+
+body .menu-dropdown-item:active {
+    background-color: color-mix(in srgb, var(--primary-color) 22%, transparent);
+    color: var(--text-color);
+}
+body .menu-account-avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    margin-right: 2px;
+    object-fit: cover;
+}
+
+body .menu-shortcut {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+body .menu-separator {
+    margin: 5px 8px;
+    background-color: color-mix(in srgb, var(--text-color) 10%, transparent);
+}
+
+/* 快速打开（Command Center 风格的居中搜索胶囊） */
+body .titlebar-quickopen {
+    height: 28px;
+    min-width: 240px;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px;
+    border-radius: var(--radius-sm);
+    background-color: var(--hover-soft);
+    border: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
+    transition: background-color 0.08s var(--ease-out), border-color 0.08s var(--ease-out);
+}
+
+body .titlebar-quickopen:hover {
+    background-color: var(--hover-soft-strong);
+    border-color: color-mix(in srgb, var(--text-color) 16%, transparent);
+}
+
+/* 窗口控制按钮：贴齐圆角标题栏 */
+body .titlebar-button {
+    height: 38px;
+    width: 46px;
+    border-radius: 0;
+    transition: background-color 0.08s var(--ease-out);
+}
+
+body .titlebar-button:hover {
+    background-color: var(--hover-soft);
+}
+
+body .titlebar-button.close-btn {
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+body .titlebar-button.close-btn:hover {
+    background-color: #e81123;
+    color: #ffffff;
+}
+
+/* ---------------------------------------------------------
+   4. 活动栏（图标栏）与侧边面板
+   --------------------------------------------------------- */
+body:has(> .main-container) :is(.sidebar) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    gap: 6px;
+}
+
+body .sidebar-icons {
+    width: 48px;
+    padding: 8px 0;
+    gap: 4px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-md);
+    background-color: var(--card-bg);
+    box-shadow: var(--panel-shadow);
+}
+
+body .sidebar-icon {
+    width: 36px;
+    height: 36px;
+    margin: 0 auto;
+    border-radius: var(--radius-md);
+    transition: color 0.08s var(--ease-out), background-color 0.08s var(--ease-out);
+}
+
+body .sidebar-icon:hover {
+    background-color: var(--hover-soft);
+    color: var(--text-color);
+}
+
+body .sidebar-icon.active {
+    background-color: color-mix(in srgb, var(--primary-color) 16%, transparent);
+    color: var(--activity-bar-active-fg);
+}
+
+body .sidebar-icon.active::before {
+    left: -6px;
+    width: 3px;
+    height: 22px;
+    border-radius: var(--radius-pill);
+    background-color: var(--primary-color);
+}
+
+body .sidebar-panel {
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-md);
+    background-color: var(--sidebar-bg);
+    box-shadow: var(--panel-shadow);
+}
+
+body .panel-header {
+    padding: 8px 10px 4px;
+    background: transparent;
+    border-bottom: none;
+}
+
+body .panel-actions .icon-btn {
+    border-radius: var(--radius-sm);
+}
+
+body .file-tree {
+    padding: 0 4px 6px;
+}
+
+/* 文件树条目：圆角、悬浮柔和 */
+body .tree-item-content {
+    margin: 1px 0;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    border-left: none;
+    transition: background-color 0.12s var(--ease-out);
+}
+
+body .tree-item-content:hover {
+    background-color: var(--hover-soft);
+    box-shadow: none;
+}
+
+body .tree-item-content:hover::before {
+    display: none;
+}
+
+body .tree-item.selected .tree-item-content {
+    background-color: color-mix(in srgb, var(--primary-color) 24%, transparent);
+    color: var(--text-color);
+    border-left: none;
+    box-shadow: none;
+}
+
+body .tree-item.selected .tree-item-content:hover {
+    background-color: color-mix(in srgb, var(--primary-color) 32%, transparent);
+    color: var(--text-color);
+}
+
+body .tree-item.selected .tree-item-label {
+    color: var(--text-color);
+}
+
+body .tree-item.drag-over {
+    border-radius: var(--radius-sm);
+}
+
+body .file-tree.drag-over-root {
+    border-radius: var(--radius-sm);
+}
+
+/* 云空间摘要 */
+body .cloud-summary {
+    border-bottom: 1px solid var(--panel-border);
+}
+
+body .cloud-quota-help-btn {
+    border-radius: var(--radius-pill);
+}
+
+body .cloud-upload-progress-bar {
+    border-radius: var(--radius-pill);
+}
+
+body .cloud-upload-progress-fill {
+    border-radius: var(--radius-pill);
+}
+
+/* ---------------------------------------------------------
+   5. 编辑区：圆角面板 + 现代标签页
+   --------------------------------------------------------- */
+body:has(> .main-container) :is(.editor-container) {
+    background-color: var(--editor-bg);
+}
+
+body .editor-group + .editor-group {
+    border-left: 1px solid var(--panel-border);
+}
+
+body .tab-bar {
+    gap: 1px;
+    min-height: 40px;
+    padding: 4px 6px 0;
+    background-color: var(--tab-bg);
+    /* 与编辑区用色差分隔（VS Code 式），不再画横线以免穿过激活标签底部 */
+    border-bottom: none;
+}
+
+/* 标签滚动改由滚轮驱动（tabs.js 已监听 wheel），隐藏占位滚动条以保证标签与底边齐平 */
+body .tab-bar::-webkit-scrollbar {
+    height: 0;
+    display: none;
+}
+
+body .tab {
+    height: 36px;
+    margin-top: 0;
+    min-width: 0;
+    width: auto;
+    padding: 0 8px 0 12px;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    border-right: none;
+    background-color: transparent;
+    transition: background-color 0.08s var(--ease-out);
+}
+
+body .tab:hover {
+    background-color: var(--tab-hover-bg);
+}
+
+body .tab.active {
+    background-color: var(--tab-active-bg);
+    border-bottom: 1px solid var(--tab-active-bg);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary-color) 65%, transparent);
+}
+
+body .tab-close {
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    transition: background-color 0.12s var(--ease-out), color 0.12s var(--ease-out);
+}
+
+body .tab-close:hover {
+    background-color: var(--hover-soft-strong);
+}
+
+body .tab-placeholder {
+    border-radius: var(--radius-sm);
+}
+
+body .tab-add {
+    border-radius: var(--radius-sm);
+}
+
+/* 欢迎页卡片 */
+body .welcome-section {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--panel-shadow);
+}
+
+body .welcome-button {
+    border-radius: var(--radius-sm);
+    transition: background-color 0.08s var(--ease-out), border-color 0.08s var(--ease-out);
+}
+
+body .welcome-recent-item {
+    border-radius: var(--radius-sm);
+}
+
+body .empty-state-button {
+    border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------
+   6. 状态栏：与标题栏同质的表面色 + 圆角胶囊条目
+   --------------------------------------------------------- */
+body:has(> .main-container) :is(.status-bar) {
+    flex: 0 0 auto;
+    height: 26px;
+    padding: 0 6px;
+    font-size: 12px;
+    background-color: var(--titlebar-bg);
+    color: color-mix(in srgb, var(--text-color) 82%, transparent);
+}
+
+body .status-left,
+body .status-right {
+    gap: 4px;
+}
+
+body .status-item {
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.08s var(--ease-out);
+}
+
+body .status-item:hover {
+    background-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+}
+
+body .status-item.warning,
+body .status-item.error,
+body .status-item.success {
+    border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------
+   7. 内置终端面板
+   --------------------------------------------------------- */
+body .editor-layout {
+    gap: 6px;
+}
+
+body:has(> .main-container) :is(.integrated-terminal-panel) {
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-md);
+    background-color: var(--app-bg);
+    box-shadow: var(--panel-shadow);
+    overflow: hidden;
+}
+
+body .integrated-terminal-header {
+    height: 34px;
+    min-height: 34px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+body .integrated-terminal-tabs {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-bottom: 1px solid var(--panel-border);
+    padding: 3px 6px;
+    gap: 3px;
+}
+
+body .integrated-terminal-tab {
+    height: 26px;
+    margin: 0;
+    padding: 0 12px;
+    border-right: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    transition: background-color 0.08s var(--ease-out);
+}
+
+body .integrated-terminal-tab:hover {
+    background: var(--hover-soft);
+}
+
+body .integrated-terminal-tab.active {
+    background: var(--hover-soft-strong);
+    color: var(--tab-active-fg);
+}
+
+/* ---------------------------------------------------------
+   8. 快速打开（Ctrl+P）浮层
+   --------------------------------------------------------- */
+body .quick-open-overlay {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+body .quick-open-container {
+    top: 64px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--dialog-shadow);
+}
+
+body .quick-open-input {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+body .quick-open-item {
+    margin: 2px 6px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border-bottom: none;
+}
+
+body .quick-open-item:hover,
+body .quick-open-item.active {
+    background: var(--hover-soft);
+}
+
+/* ---------------------------------------------------------
+   9. 对话框 / 浮出层
+   --------------------------------------------------------- */
+body :is(.dialog-overlay, .update-dialog-overlay, .about-dialog-overlay) {
+    background-color: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+body :is(.dialog-container, .update-dialog, .about-dialog, .file-history-dialog, .settings-dialog, .about-dialog) {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--dialog-shadow);
+}
+
+body .dialog-header {
+    background: transparent;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+body .dialog-body input {
+    border: 1px solid var(--input-border, var(--border-color));
+    border-radius: var(--radius-sm);
+    transition: border-color 0.08s var(--ease-out), box-shadow 0.08s var(--ease-out);
+}
+
+body .dialog-body input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 28%, transparent);
+    transform: none;
+}
+
+body .dialog-footer {
+    background: transparent;
+    border-top: 1px solid var(--panel-border);
+}
+
+body .dialog-btn {
+    border-radius: var(--radius-sm);
+    padding: 6px 16px;
+    min-width: 64px;
+    font-weight: 600;
+    transition: background-color 0.08s var(--ease-out), border-color 0.08s var(--ease-out), transform 0.08s var(--ease-out);
+}
+
+body .dialog-btn:active {
+    transform: scale(0.98);
+}
+
+body .dialog-btn-cancel {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+body .dialog-btn-cancel:hover {
+    background-color: var(--hover-bg);
+}
+
+body :is(.dialog-btn-confirm, .dialog-btn-primary) {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+body :is(.dialog-btn-confirm, .dialog-btn-primary):hover {
+    background-color: var(--primary-color-hover);
+    border-color: var(--primary-color-hover);
+}
+
+body .about-footer button {
+    border-radius: var(--radius-sm);
+}
+
+body .update-footer button {
+    border-radius: var(--radius-sm);
+}
+
+body .feedback-btn,
+body .log-picker-item {
+    border-radius: var(--radius-md);
+}
+
+body .about-info,
+body .oss-table-wrap,
+body .newyear-wishes {
+    border-radius: var(--radius-md);
+}
+
+/* 右键菜单 */
+body .context-menu {
+    padding: 5px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--flyout-shadow);
+}
+
+body .context-menu-item {
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.12s var(--ease-out);
+}
+
+body .context-menu-item[data-separator="true"] {
+    margin: 5px 8px;
+    border-radius: 0;
+}
+
+/* 消息提示（Toast） */
+body :is(.message, .message-toast) {
+    border-radius: var(--radius-md);
+    box-shadow: var(--flyout-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ---------------------------------------------------------
+   10. 输入控件与按钮（全局 WinUI 化）
+   --------------------------------------------------------- */
+body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+body textarea,
+body select {
+    border-radius: var(--radius-sm);
+    transition: border-color 0.08s var(--ease-out), box-shadow 0.08s var(--ease-out),
+        background-color 0.08s var(--ease-out);
+}
+
+body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+body textarea:focus,
+body select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 25%, transparent);
+}
+
+body input[type="checkbox"],
+body input[type="radio"] {
+    accent-color: var(--primary-color);
+}
+
+body button {
+    transition: background-color 0.08s var(--ease-out), border-color 0.08s var(--ease-out),
+        box-shadow 0.08s var(--ease-out), color 0.08s var(--ease-out);
+}
+
+body [class*="-btn"],
+body [class*="btn-"],
+body [class*="button"] {
+    border-radius: var(--radius-sm);
+}
+
+body .icon-btn {
+    border-radius: var(--radius-sm);
+}
+
+body .titlebar-button {
+    border-radius: 0;
+}
+
+body .titlebar-button.close-btn {
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+body button:focus-visible,
+body [tabindex]:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary-color) 65%, transparent);
+    outline-offset: 1px;
+}
+
+/* 通用分隔线 / 拖拽手柄 */
+body .separator {
+    background: color-mix(in srgb, var(--text-color) 12%, transparent);
+}
+
+body .resize-handle {
+    background: transparent;
+    transition: background-color 0.1s var(--ease-out);
+}
+
+/* ---------------------------------------------------------
+   11. 侧栏功能面板（样例测试器 / 对拍器 / 调试 / 编译输出 / 浏览器）
+   --------------------------------------------------------- */
+body :is(.samples-summary, .sample-group, .analysis-card, .diff-section, .compare-file-section,
+    .compare-config-section, .compare-notice, .global-settings, .debug-section, .spj-file-display,
+    .file-path-display, .file-reference, .program-output, .spj-help-text, .status-badge,
+    .breakpoints-panel, .call-stack-panel, .variables-panel, .watch-variables-section,
+    .samples-content > div, .file-select-item) {
+    border-radius: var(--radius-md);
+}
+
+body .sample-group {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+body .status-badge {
+    border-radius: var(--radius-pill);
+}
+
+body .progress-bar,
+body .progress-fill {
+    border-radius: var(--radius-pill);
+}
+
+body .compare-status {
+    border-radius: var(--radius-md);
+}
+
+/* 编译输出浮层 */
+body .compile-output-window {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--flyout-shadow);
+}
+
+body :is(.compile-output-clear, .compile-output-close) {
+    border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------
+   12. 设置窗口（独立 BrowserWindow，带系统边框）
+   --------------------------------------------------------- */
+body .settings-sidebar {
+    background: transparent;
+    border-right: none;
+    padding: 12px 8px;
+    gap: 2px;
+}
+
+body .sidebar-item {
+    border-left: none;
+    border-radius: var(--radius-sm);
+    padding: 9px 14px;
+    margin: 1px 2px;
+    transition: background-color 0.08s var(--ease-out), color 0.08s var(--ease-out);
+}
+
+body .sidebar-item:hover {
+    background-color: var(--hover-soft);
+}
+
+body .sidebar-item.active {
+    background-color: color-mix(in srgb, var(--primary-color) 16%, transparent);
+    border-left: none;
+    color: var(--settings-text);
+}
+
+body .settings-main {
+    padding: 24px 32px;
+}
+
+body .section-title {
+    border-bottom: 1px solid var(--panel-border);
+}
+
+body .settings-section {
+    border-radius: var(--radius-md);
+}
+
+body :is(.btn, .tab-btn, .close-btn, .retry-btn, .download-btn, .select-btn) {
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    font-weight: 500;
+}
+
+body .tab-btn {
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+body .syntax-color-input {
+    border-radius: var(--radius-xs);
+}
+
+body .snippets-list,
+body .keybinding-row {
+    border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------
+   13. Monaco 编辑器 chrome（查找替换等）
+   --------------------------------------------------------- */
+.find-widget {
+    border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid var(--panel-border) !important;
+    border-top: none !important;
+}
+
+.monaco-editor .scroll-decoration {
+    box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------
+   14. 毛玻璃模式适配（在圆角结构上恢复半透明表面）
+   --------------------------------------------------------- */
+body.glass-effect-enabled:has(> .main-container) :is(.titlebar, .sidebar-icons, .sidebar-panel, .editor-container, .status-bar) {
+    background-color: var(--glass-surface, rgba(16, 19, 27, 0.42));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 18px)) saturate(130%);
+    backdrop-filter: blur(var(--glass-blur, 18px)) saturate(130%);
+    border-color: var(--glass-border, rgba(255, 255, 255, 0.14));
+}
+
+body.glass-effect-enabled .sidebar-icons,
+body.glass-effect-enabled .sidebar-panel,
+body.glass-effect-enabled .panel-header {
+    background-color: var(--glass-surface, rgba(16, 19, 27, 0.42));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 18px)) saturate(130%);
+    backdrop-filter: blur(var(--glass-blur, 18px)) saturate(130%);
+}
+
+body.glass-effect-enabled:has(> .main-container) :is(.integrated-terminal-panel) {
+    background-color: var(--glass-surface, rgba(16, 19, 27, 0.42));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur, 18px) * 0.65)) saturate(130%);
+    backdrop-filter: blur(calc(var(--glass-blur, 18px) * 0.65)) saturate(130%);
+}
+
+/* 毛玻璃下的浮动元素保持实底，保证可读性 */
+body.glass-effect-enabled :is(.menu-dropdown, .context-menu, .dialog-container, .quick-open-container) {
+    background-color: var(--glass-surface-strong, rgba(14, 18, 24, 0.72));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur, 18px) * 0.9)) saturate(130%);
+    backdrop-filter: blur(calc(var(--glass-blur, 18px) * 0.9)) saturate(130%);
+}
+
+/* ---------------------------------------------------------
+   15. 图标体系（codicon 细线图标 + Seti 彩色文件图标）
+   --------------------------------------------------------- */
+/* 活动栏：VS Code 规格的 24px 线性图标 */
+body .sidebar-icon .codicon {
+    font-size: 24px;
+}
+
+/* 面板标题按钮 */
+body .panel-actions .icon-btn .codicon,
+body .integrated-terminal-header .icon-btn .codicon {
+    font-size: 16px;
+}
+
+/* 文件树：Seti 彩色图标 + 黄色文件夹 */
+body .tree-item-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+body .tree-item-icon.seti {
+    font-size: 14px;
+    line-height: 16px;
+}
+
+body .tree-folder-icon svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+body .tree-item-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-right: 2px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+body .tree-item-arrow .codicon {
+    font-size: 14px;
+}
+
+/* 标签页：文件类型图标 */
+body .tab-file-icon {
+    font-size: 14px;
+    width: 16px;
+    margin-right: 6px;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+body .tab-label {
+    /* 贴合内容而非拉伸填充：消除短文件名标签中部的大片空白 */
+    flex: 0 1 auto;
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    margin-right: 4px;
+}
+
+body .tab-close {
+    margin-left: auto;
+}
+
+/* PDF / 浏览器 / 对拍标签使用各自的专属图标 */
+body :is(.tab-type-pdf, .tab-type-browser, .tab-type-diff) .tab-file-icon {
+    display: none;
+}
+
+body .tab-icon-browser {
+    margin-right: 6px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* 快速打开搜索图标 */
+body .titlebar-quickopen .qo-icon {
+    font-size: 14px;
+}
+
+/* 欢迎页折叠箭头等 codicon 场景 */
+body .codicon {
+    line-height: 1;
+}
+
+/* ---------------------------------------------------------
+   16. 细节校准（对齐 VS Code 观感）
+   --------------------------------------------------------- */
+/* 文件树选中/悬浮改为中性色（VS Code 列表观感） */
+body .tree-item-content:hover {
+    background-color: var(--hover-soft);
+}
+
+body .tree-item.selected .tree-item-content {
+    background-color: color-mix(in srgb, var(--text-color) 13%, transparent);
+    color: var(--text-color);
+}
+
+body .tree-item.selected .tree-item-content:hover {
+    background-color: color-mix(in srgb, var(--text-color) 18%, transparent);
+    color: var(--text-color);
+}
+
+/* 全局滚动条略细 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+    border-width: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    border-width: 2px;
+}
+
+/* ---------------------------------------------------------
+   17. 圆角体系统一（消除圆角/直角混杂）
+   体系：控件 6px（--radius-sm）/ 卡片与浮层 8px（--radius-md）/
+   对话框 10px（--radius-lg）/ 徽章与滚动条胶囊（--radius-pill）
+   --------------------------------------------------------- */
+/* 滚动条：轨道一律透明、滑块胶囊化（含 Monaco 自绘滚动条） */
+::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent !important;
+}
+
+.monaco-scrollable-element > .scrollbar > .slider {
+    border-radius: var(--radius-pill) !important;
+}
+
+.monaco-scrollable-element > .scrollbar.vertical > .slider {
+    width: 6px !important;
+}
+
+.monaco-scrollable-element > .scrollbar.horizontal > .slider {
+    height: 6px !important;
+}
+
+/* Monaco 弹层：补全建议 / 悬浮文档 / 参数提示 / 重命名框 */
+body :is(.monaco-editor .suggest-widget, .monaco-editor .monaco-hover,
+    .monaco-editor .parameter-hints-widget, .monaco-editor .rename-box) {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+body :is(.monaco-editor .suggest-widget, .monaco-editor .monaco-hover,
+    .monaco-editor .parameter-hints-widget) {
+    border: 1px solid var(--panel-border) !important;
+    box-shadow: var(--flyout-shadow) !important;
+}
+
+body :is(.monaco-editor .suggest-widget, .monaco-editor .parameter-hints-widget) .monaco-list-row {
+    border-radius: var(--radius-xs);
+}
+
+/* Monaco 查找框内输入与按键帽 */
+body .monaco-editor .find-widget .monaco-inputbox,
+body .monaco-keybinding-key {
+    border-radius: var(--radius-xs);
+}
+
+/* 需要由父容器裁剪出圆角的复合卡片 */
+body :is(.update-dialog, .compile-output-window, .global-settings, .file-select-item, .compare-status) {
+    overflow: hidden;
+}
+
+/* 样例测试器：状态徽章胶囊化 */
+body :is(.status-ac, .status-wa, .status-tle, .status-mle, .status-ce, .status-re, .status-pending) {
+    border-radius: var(--radius-pill);
+}
+
+body .diff-line-highlight {
+    border-radius: var(--radius-xs);
+}
+
+/* 对拍器 */
+body .compare-notice {
+    border-radius: var(--radius-md);
+}
+
+body .file-select-header {
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+body .result-header {
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+/* 调试面板 */
+body :is(.debug-mini-wrap, .watch-variables-section, .input-area, .input-controls, .debug-input) {
+    border-radius: var(--radius-md);
+}
+
+body :is(.category-header, .variable-item, .callstack-item) {
+    border-radius: var(--radius-sm);
+}
+
+body .variable-children {
+    border-radius: var(--radius-sm);
+}
+
+/* 编译输出 */
+body :is(.analysis-badge, .analysis-badge.severity-warning, .analysis-badge.severity-error) {
+    border-radius: var(--radius-pill);
+}
+
+body :is(.message-popup, .message-popup.message-info, .message-popup.message-success,
+    .message-popup.message-warning, .message-popup.message-error) {
+    border-radius: var(--radius-md);
+    box-shadow: var(--flyout-shadow);
+}
+
+body .compile-tab-btn.active {
+    border-radius: var(--radius-sm);
+}
+
+/* 文件历史 / 更新 / 关于对话框的分区行 */
+body :is(.file-history-item, .file-history-clear-btn, .update-footer button, .about-footer button) {
+    border-radius: var(--radius-sm);
+}
+
+/* 文件夹选择浮层 */
+body :is(.folder-picker, .folder-picker.light) {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+body :is(.folder-picker-item, .folder-picker-quick-item, .folder-picker-up) {
+    border-radius: var(--radius-sm);
+}
+
+body :is(.folder-picker-tree, .folder-picker-search, .folder-picker-create input, .folder-picker-error) {
+    border-radius: var(--radius-md);
+}
+
+/* 内置浏览器地址栏 */
+body .browser-nav-bar {
+    border-radius: var(--radius-md);
+}
+
+/* 欢迎页小标签 */
+body :is(.welcome-tab, .welcome-tab.active) {
+    border-radius: var(--radius-sm);
+}
+
+/* 测试器文本域与输出块 */
+body :is(.sample-textarea, .program-output, .sample-content pre, pre.diff-content) {
+    border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------
+   18. 应用内子窗口（亚克力遮罩 + 玻璃浮窗）
+   --------------------------------------------------------- */
+body .app-window-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.35);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+    animation: appWindowOverlayIn 0.09s var(--ease-out);
+}
+
+body .app-window-overlay.open {
+    display: block;
+}
+
+@keyframes appWindowOverlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+body .app-window {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 48px);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--panel-border);
+    background-color: var(--glass-surface-strong, rgba(20, 23, 30, 0.86));
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    backdrop-filter: blur(28px) saturate(150%);
+    box-shadow: var(--dialog-shadow), 0 0 0 1px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: appWindowIn 0.1s var(--ease-out);
+}
+
+@keyframes appWindowIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+body .app-window-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    height: 38px;
+    padding: 0 6px 0 14px;
+    background: transparent;
+    border-bottom: 1px solid var(--panel-border);
+    user-select: none;
+    cursor: default;
+}
+
+body .app-window-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-color);
+    letter-spacing: 0.2px;
+}
+
+body .app-window-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 30px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.08s var(--ease-out), color 0.08s var(--ease-out);
+}
+
+body .app-window-close:hover {
+    background-color: #e81123;
+    color: #ffffff;
+}
+
+body .app-window-frame {
+    flex: 1 1 auto;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color-scheme: normal;
+}
+
+/* iframe 内设置页背景透明化，让玻璃浮窗透出（仅应用内窗口模式生效） */
+body.oicpp-in-app {
+    background: transparent !important;
+}
+
+body.oicpp-in-app .settings-container {
+    background: transparent !important;
+}
+
+/* 设置窗口为 modal 时拖动期间禁止 iframe 吞掉鼠标事件 */
+body .app-window.dragging .app-window-frame {
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------------
+   19. 全局动效层（所有控件与状态切换都有过渡）
+   --------------------------------------------------------- */
+/* 框架面板：颜色/阴影随主题与状态平滑变化 */
+body :is(.titlebar, .sidebar-icons, .sidebar-panel, .editor-container, .status-bar,
+    .integrated-terminal-panel, .panel-header) {
+    transition: background-color 0.1s var(--ease-out), border-color 0.1s var(--ease-out),
+        box-shadow 0.1s var(--ease-out);
+}
+
+body {
+    transition: background-color 0.12s var(--ease-out);
+}
+
+/* 侧边栏折叠/展开宽度动画（拖动时由 .no-anim 关闭保证跟手） */
+body:has(> .main-container) .sidebar {
+    transition: width 0.12s var(--ease-out);
+}
+
+body:has(> .main-container) .sidebar.no-anim,
+body:has(> .main-container) .sidebar.no-anim :is(.sidebar-panel, .sidebar-icons) {
+    transition: none;
+}
+
+/* 面板内容切换淡入上移 */
+body .panel-content.active {
+    animation: panelContentIn 0.1s var(--ease-out);
+}
+
+@keyframes panelContentIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 标签页进入与激活微动效 */
+body .tab {
+    animation: tabIn 0.08s var(--ease-out);
+}
+
+@keyframes tabIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 活动栏指示条弹性出现 */
+body .sidebar-icon.active::before {
+    animation: indicatorIn 0.1s var(--ease-out);
+}
+
+@keyframes indicatorIn {
+    from { transform: translateY(-50%) scaleY(0.2); opacity: 0; }
+    to { transform: translateY(-50%) scaleY(1); opacity: 1; }
+}
+
+/* 树节点进入（目录展开时子项依次淡入由浏览器批量处理） */
+body .tree-item {
+    animation: treeItemIn 0.08s var(--ease-out);
+}
+
+@keyframes treeItemIn {
+    from { opacity: 0; transform: translateX(-4px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* 按钮/图标按压反馈 */
+body button:active:not(.titlebar-button) {
+    transform: scale(0.97);
+}
+
+body .sidebar-icon:active {
+    transform: scale(0.92);
+}
+
+/* 快速打开浮层弹入 */
+body .quick-open-container {
+    animation: qoIn 0.1s var(--ease-out);
+}
+
+@keyframes qoIn {
+    from { opacity: 0; transform: translateY(-10px) scale(0.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 编译输出浮窗滑入 */
+body .compile-output-window.show {
+    animation: coIn 0.1s var(--ease-out);
+}
+
+@keyframes coIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 终端面板展开动画 */
+body .integrated-terminal-panel:not(.collapsed) {
+    animation: terminalIn 0.1s var(--ease-out);
+}
+
+@keyframes terminalIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 设置窗口/对话框已有独立入场动画；统一加退出预置类 */
+body .app-window-overlay.closing {
+    opacity: 0;
+    transition: opacity 0.09s var(--ease-out);
+}
+
+body .app-window-overlay.closing .app-window {
+    transform: translateY(10px) scale(0.985);
+    transition: transform 0.09s var(--ease-out);
+}
+
+/* 下拉菜单/右键菜单项按下反馈 */
+body :is(.menu-dropdown-item, .context-menu-item):active {
+    transform: scale(0.98);
+}
+
+/* 尊重系统"减少动态效果"设置 */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ---------------------------------------------------------
+   20. 拖动条（Sash）：常态显示三点提示、居于间隙、圆角
+   --------------------------------------------------------- */
+body .sidebar-resizer {
+    right: -6px;
+    width: 6px;
+    border-radius: var(--radius-pill);
+    background-color: transparent;
+    transition: background-color 0.09s var(--ease-out);
+}
+
+body .sidebar-resizer::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 22px;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--text-color) 45%, transparent) 1px, transparent 1.3px);
+    background-size: 4px 7px;
+    background-position: center;
+    opacity: 0.75;
+    transition: opacity 0.09s var(--ease-out);
+    pointer-events: none;
+}
+
+body .sidebar-resizer:hover,
+body .sidebar-resizer.resizing {
+    background-color: color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+body .sidebar-resizer:hover::before,
+body .sidebar-resizer.resizing::before {
+    background-image: radial-gradient(circle, var(--primary-color) 1.1px, transparent 1.4px);
+    opacity: 1;
+}
+
+/* 编辑器分组与终端的分隔条：统一三点语言（横向布局用竖排点） */
+body .resize-handle,
+body .editor-group-resizer {
+    position: relative;
+}
+
+body :is(.resize-handle, .editor-group-resizer)::after {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--text-color) 40%, transparent) 1px, transparent 1.3px);
+    background-size: 2px 7px;
+    background-position: center;
+    opacity: 0.7;
+}
+
+body :is(.resize-handle, .editor-group-resizer):hover::after {
+    background-image: radial-gradient(circle, var(--primary-color) 1.1px, transparent 1.4px);
+    opacity: 1;
+}
+
+/* 终端顶部分隔条：横排三点 */
+body .integrated-terminal-resizer {
+    position: relative;
+    height: 6px;
+}
+
+body .integrated-terminal-resizer::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 22px;
+    height: 4px;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--text-color) 40%, transparent) 1px, transparent 1.3px);
+    background-size: 7px 4px;
+    background-position: center;
+    opacity: 0.7;
+    transition: opacity 0.09s var(--ease-out);
+    pointer-events: none;
+}
+
+body .integrated-terminal-resizer:hover::after,
+body .integrated-terminal-resizer.dragging::after {
+    background-image: radial-gradient(circle, var(--primary-color) 1.1px, transparent 1.4px);
+    opacity: 1;
+}
+
+/* ---------------------------------------------------------
+   21. 间距精修（对话框紧凑化、控件空白收敛）
+   --------------------------------------------------------- */
+body .dialog-header {
+    padding: 16px 20px 12px;
+}
+
+body .dialog-body {
+    padding: 18px 20px;
+}
+
+body .dialog-body input {
+    padding: 10px 14px;
+}
+
+body .dialog-footer {
+    padding: 12px 20px 16px;
+}
+
+body .update-header {
+    padding: 12px 18px;
+}
+
+body .update-content {
+    padding: 16px 18px;
+}
+
+body .update-footer,
+body .about-footer {
+    padding: 10px 18px 14px;
+}
+
+body .about-header {
+    padding: 16px 18px 12px;
+}
+
+body .about-content {
+    padding: 16px 18px;
+}
+
+body .file-history-titlebar {
+    padding: 10px 14px;
+}
+
+body .file-history-item {
+    padding: 8px 14px;
+}
+
+/* 设置窗口主区域边距收敛 */
+body .settings-main {
+    padding: 18px 24px;
+}
+
+/* 面板标题行与操作按钮的基线对齐 */
+body .panel-actions {
+    gap: 2px;
+}
+
+/* 样例测试器等面板内容边距 */
+body :is(.samples-content, .compare-content) {
+    padding: 10px 12px;
+}
+
+/* 菜单项与快速打开输入的紧凑化 */
+body .menu-dropdown-item {
+    padding: 6px 12px;
+}
+
+body .quick-open-input {
+    padding: 11px 14px;
+}
+
+/* ---------------------------------------------------------
+   22. 树选中态 / 标签比例 / minimap 修型
+   --------------------------------------------------------- */
+/* 消除双底：全局 .selected 规则(main.css !important)会给 .tree-item 自身
+   再铺一层底色，与 .tree-item-content 的选中背景叠加成“重复灰框” */
+body .tree-item.selected {
+    background-color: transparent !important;
+}
+
+/* 鼠标/程序聚焦树行时不再出现蓝色 focus 外框（选中背景已足够辨识） */
+body .tree-item-content:focus-visible {
+    outline: none;
+}
+
+/* 标签：降低高度、放大文件图标，比例对齐 VS Code */
+body .tab-bar {
+    min-height: 36px;
+    padding: 3px 6px 0;
+}
+
+body .tab {
+    height: 32px;
+    padding: 0 8px 0 10px;
+}
+
+body .tab-file-icon {
+    font-size: 16px;
+    width: 18px;
+}
+
+body .tab-label {
+    font-size: 13px;
+}
+
+/* minimap 视口指示器：淡化 + 圆角，不再像一块突兀的灰板 */
+.monaco-editor .minimap-slider-horizontal {
+    border-radius: 4px;
+    background: rgba(121, 121, 121, 0.13);
+    transition: background-color 0.08s var(--ease-out);
+}
+
+.monaco-editor .minimap-slider-horizontal:hover,
+.monaco-editor .minimap-slider-horizontal.active {
+    background: rgba(121, 121, 121, 0.24);
+}
+
+/* ---------------------------------------------------------
+   23. 标签栏右侧操作组（分屏 / 更多）
+   --------------------------------------------------------- */
+body .tab-bar-actions {
+    position: absolute;
+    top: 5px;
+    right: 8px;
+    z-index: 6;
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--tab-bg) 88%, transparent);
+}
+
+body .tab-bar-actions .icon-btn {
+    width: 26px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    border-radius: 5px;
+}
+
+body .tab-bar-actions .icon-btn:hover {
+    background-color: var(--hover-soft);
+    color: var(--text-color);
+}
+
+body .tab-bar-actions .icon-btn .codicon {
+    font-size: 16px;
+}
+
+body .tab-actions-menu {
+    position: fixed;
+    z-index: 10000;
+    min-width: 160px;
+}
+
+/* Monaco 内部元素不显示浏览器 focus 外框(编辑器自有光标/选区指示) */
+.monaco-editor textarea:focus-visible,
+.monaco-editor :focus-visible,
+.monaco-editor-container:focus-visible {
+    outline: none !important;
+}
