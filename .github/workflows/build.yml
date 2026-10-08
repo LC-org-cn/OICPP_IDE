@@ -325,13 +325,28 @@ jobs:
           $content = Get-Content $nsiPath -Raw -Encoding UTF8
           if (-not $content) { Write-Error "Failed to read $nsiPath"; exit 1 }
 
-          $rewritten = $content -replace '!define PRODUCT_VERSION "[^"]*"', "!define PRODUCT_VERSION ""$version"""
-          if ($rewritten -eq $content) { Write-Error "PRODUCT_VERSION was not rewritten in $nsiPath"; exit 1 }
-          $content = $rewritten
+          # Assert that the pattern is present, then that the value landed.
+          # Comparing before/after strings is wrong: when the file already holds
+          # the target version the replacement is legitimately a no-op, and a
+          # string comparison reports that as "not rewritten". That is exactly
+          # what broke the build once installer.nsi was aligned with 1.0.0.
+          $versionPattern = '!define PRODUCT_VERSION "[^"]*"'
+          if (-not ($content -match $versionPattern)) {
+              Write-Error "Could not find PRODUCT_VERSION in $nsiPath"; exit 1
+          }
+          $content = $content -replace $versionPattern, "!define PRODUCT_VERSION ""$version"""
+          if (-not ($content -match ('!define PRODUCT_VERSION "' + [regex]::Escape($version) + '"'))) {
+              Write-Error "PRODUCT_VERSION was not set to $version in $nsiPath"; exit 1
+          }
 
-          $rewritten = $content -replace 'OutFile "OICPP-[^"]*-Setup.exe"', "OutFile ""OICPP-$version-Setup.exe"""
-          if ($rewritten -eq $content) { Write-Error "OutFile was not rewritten in $nsiPath"; exit 1 }
-          $content = $rewritten
+          $outFilePattern = 'OutFile "OICPP-[^"]*-Setup\.exe"'
+          if (-not ($content -match $outFilePattern)) {
+              Write-Error "Could not find the OutFile line in $nsiPath"; exit 1
+          }
+          $content = $content -replace $outFilePattern, "OutFile ""OICPP-$version-Setup.exe"""
+          if (-not ($content -match ('OutFile "OICPP-' + [regex]::Escape($version) + '-Setup\.exe"'))) {
+              Write-Error "OutFile was not set for $version in $nsiPath"; exit 1
+          }
 
           # UTF8Encoding($true) emits the BOM that makensis keys off. Set-Content
           # is not used on purpose: -Encoding UTF8 means "with BOM" on Windows
