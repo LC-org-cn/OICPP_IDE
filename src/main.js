@@ -4261,6 +4261,12 @@ function setupIPC() {
                 const filePath = result.filePaths[0];
                 const importedSettings = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
+                // mergeSettings walks userSettings[key]; a non-object payload
+                // would either throw deep inside or silently import nothing.
+                if (!importedSettings || typeof importedSettings !== 'object' || Array.isArray(importedSettings)) {
+                    throw new Error('设置文件的顶层必须是一个 JSON 对象');
+                }
+
                 const defaultSettings = getDefaultSettings();
                 settings = mergeSettings(defaultSettings, importedSettings);
 
@@ -6722,27 +6728,11 @@ function getSettingsPath() {
     return path.join(settingsDir, 'settings.json');
 }
 
-function mergeSettings(defaultSettings, userSettings) {
-    const result = JSON.parse(JSON.stringify(defaultSettings));
-
-    function merge(target, source) {
-        for (const key in source) {
-            if (source.hasOwnProperty(key)) {
-                if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
-                    if (!target[key] || typeof target[key] !== 'object') {
-                        target[key] = {};
-                    }
-                    merge(target[key], source[key]);
-                } else {
-                    target[key] = source[key];
-                }
-            }
-        }
-    }
-
-    merge(result, userSettings);
-    return result;
-}
+// mergeSettings used to be defined here too, as an unfiltered deep merge.
+// The later allowlist version wins at load time, so this copy was dead -- but
+// it is a landmine: it would silently start accepting arbitrary keys from an
+// imported settings file if anything ever reordered these declarations.
+// Only the allowlist definition below remains.
 
 function loadSettings() {
     try {
@@ -6858,11 +6848,20 @@ function mergeSettings(defaultSettings, userSettings) {
     const validKeys = ['compilerPath', 'pythonInterpreterPath', 'compilerArgs', 'runMode', 'testlibPath', 'font', 'fontSize', 'terminalFontSize', 'terminalStartupCommand', 'syntaxCheckEnabled', 'lineHeight', 'theme', 'syntaxColorsByTheme', 'syntaxFontStyles', 'unifiedPreprocessorColor', 'syntaxColors', 'tabSize', 'formatterIndentStyle', 'clangFormatStyle', 'clangFormatRaw', 'fontLigaturesEnabled', 'enableAutoCompletion', 'foldingEnabled', 'stickyScrollEnabled', 'autoSave', 'autoSaveInterval', 'language', 'autoBackupSettings', 'receiveBetaUpdates', 'markdownMode', 'cppTemplate', 'codeSnippets', 'windowOpacity', 'glassEffectEnabled', 'backgroundImage', 'keybindings', 'autoOpenLastWorkspace', 'account', 'runAllSamples'];
 
     for (const key of validKeys) {
-        if (userSettings[key] !== undefined) {
-            result[key] = userSettings[key];
-        } else {
+        const incoming = userSettings[key];
+        if (incoming === undefined) {
             result[key] = defaultSettings[key];
+            continue;
         }
+        // null passes the undefined check above, so a settings file containing
+        // e.g. "keybindings": null would replace the defaults with something
+        // unusable and every shortcut lookup would throw. Keep the default for
+        // structured settings instead.
+        if (incoming === null && defaultSettings[key] !== null && typeof defaultSettings[key] === 'object') {
+            result[key] = defaultSettings[key];
+            continue;
+        }
+        result[key] = incoming;
     }
 
     return result;
