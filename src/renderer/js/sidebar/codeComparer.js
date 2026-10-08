@@ -1,6 +1,25 @@
+/**
+ * Shared judging rules live in js/shared/output-normalize.js so the sample
+ * tester and the code comparer cannot drift apart again.
+ * Behaviour is pinned by test/output-normalize.test.js -- read that file before
+ * changing anything here.
+ */
+function oicppOutputNormalize() {
+    const api = (typeof window !== 'undefined') ? window.OICPPOutputNormalize : null;
+    if (!api) {
+        throw new Error('OICPPOutputNormalize is not loaded; check the script tag order in index.html');
+    }
+    return api;
+}
+
 class CodeComparer {
     constructor() {
         this.activeTaskKey = null;
+        // Judges run in parallel workers, so SPJ temp file names need a
+        // per-process counter on top of the timestamp: two workers starting in
+        // the same millisecond used to share input/actual/expected files and
+        // delete each other's mid-run.
+        this.spjTempSequence = 0;
         this.standardCodePath = '';
         this.testCodePath = '';
         this.generatorPath = '';
@@ -1189,25 +1208,15 @@ class CodeComparer {
     }
 
     compareOutputs(output1, output2) {
-        const normalize = (str) => {
-            return str.split('\n')
-                .map(line => line.trimEnd())
-                .join('\n')
-                .replace(/\n+$/, '');
-        };
-
-        const normalized1 = normalize(output1 || '');
-        const normalized2 = normalize(output2 || '');
-
-        return normalized1 === normalized2;
+        return oicppOutputNormalize().verdictsMatch(output1, output2);
     }
 
     async judgeWithSpj(spjExecutablePath, inputData, actualOutput, expectedOutput, timeLimit) {
         try {
-            const timestamp = Date.now();
-            const inputFile = await window.electronAPI.saveTempFile(`spj_input_${timestamp}.txt`, inputData);
-            const actualFile = await window.electronAPI.saveTempFile(`spj_actual_${timestamp}.txt`, actualOutput);
-            const expectedFile = await window.electronAPI.saveTempFile(`spj_expected_${timestamp}.txt`, expectedOutput);
+            const suffix = `${Date.now()}_${++this.spjTempSequence}`;
+            const inputFile = await window.electronAPI.saveTempFile(`spj_input_${suffix}.txt`, inputData);
+            const actualFile = await window.electronAPI.saveTempFile(`spj_actual_${suffix}.txt`, actualOutput);
+            const expectedFile = await window.electronAPI.saveTempFile(`spj_expected_${suffix}.txt`, expectedOutput);
 
             try {
                 const workingDir = await window.electronAPI.pathDirname(spjExecutablePath);
@@ -1920,13 +1929,13 @@ class CodeComparer {
         return null;
     }
 
+    /**
+     * Basis for the side-by-side diff view only. Kept separate from the verdict
+     * basis on purpose: a textual diff is allowed to show trailing whitespace
+     * that the judge deliberately ignores.
+     */
     normalizeForCompare(text) {
-        if (text == null) return '';
-        let s = String(text);
-        s = s.replace(/^\uFEFF/, '');
-        s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        s = s.replace(/\uFEFF/g, '');
-        return s;
+        return oicppOutputNormalize().normalizeForDisplay(text);
     }
 
     escapeHtml(text) {
