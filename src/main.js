@@ -1006,7 +1006,10 @@ function startIdeLoginFlow() {
                     csrfToken = await win.webContents.executeJavaScript(
                         "document.querySelector('meta[name=\"csrf-token\"]')?.content || ''"
                     );
-                    if (csrfToken) logInfo('[洛谷登录] CSRF Token:', csrfToken.substring(0, 30) + '...');
+                    // Length only. The first 30 characters of a CSRF token are
+                    // enough to be a usable credential fragment, and this lands
+                    // in ~/.oicpp/logs/ unredacted.
+                    if (csrfToken) logInfo('[洛谷登录] 已获取 CSRF Token，长度:', String(csrfToken).length);
                 } catch (_) { }
 
                 const cookieStr = cookies.map(c => c.name + '=' + c.value).join('; ');

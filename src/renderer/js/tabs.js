@@ -5509,9 +5509,8 @@ void hello() {
     }
 }
 
-let tabManager;
-document.addEventListener('DOMContentLoaded', () => {
-    tabManager = new TabManager();
-    window.tabManager = tabManager;
-    logInfo('标签页管理器已初始化');
-});
+// TabManager is instantiated exactly once, by init.js. It used to also be
+// constructed here on DOMContentLoaded; because tabs.js loads before init.js,
+// that built a throwaway instance that ran init() and bound all 51 of its event
+// listeners, then init.js overwrote window.tabManager with a second one -- so
+// every listener fired twice against two different managers.
