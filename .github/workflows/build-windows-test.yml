@@ -25,6 +25,9 @@ jobs:
           } else {
             $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           }
+          # build.yml strips a leading "v" here; without it this workflow stamped
+          # "v1.2.3" straight into PRODUCT_VERSION and the registry.
+          if ($version.StartsWith('v')) { $version = $version.Substring(1) }
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
           Write-Host "Using VERSION=$version"
 

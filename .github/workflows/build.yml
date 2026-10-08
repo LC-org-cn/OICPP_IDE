@@ -181,7 +181,10 @@ jobs:
           } else {
             $version = "${{ github.ref_name }}"
           }
-          $version = $version.Substring(1)
+          # Accept both "v1.2.3" and "1.2.3". The unconditional Substring(1)
+          # chopped a real character whenever the tag or the dispatch input had
+          # no leading "v", producing versions like ".2.3".
+          if ($version.StartsWith('v')) { $version = $version.Substring(1) }
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
 
       - name: Setup Node.js
