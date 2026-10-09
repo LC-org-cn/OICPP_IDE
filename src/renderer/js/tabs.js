@@ -3470,7 +3470,17 @@ class TabManager {
             if (!targetGroup) {
                 targetGroup = this.createGroup({ afterGroupId: this.activeGroupId });
                 if (!targetGroup) {
+                    // createGroup returns null when this.editorGroupsElement is
+                    // missing, i.e. no workspace is open. This used to log and
+                    // return, so clicking the built-in browser with no folder
+                    // open did nothing at all -- no tab, no message. Same guard
+                    // wording createNewCppFile already uses.
                     logError('无法创建目标分组，放弃打开浏览器标签页');
+                    if (window.dialogManager) {
+                        const msg = '请先打开一个工作区文件夹，再使用内置浏览器';
+                        try { logError('[DialogError]', { message: msg, from: 'TabManager.openBrowserTab' }); } catch (_) { }
+                        window.dialogManager.showError(msg);
+                    }
                     return;
                 }
             }
