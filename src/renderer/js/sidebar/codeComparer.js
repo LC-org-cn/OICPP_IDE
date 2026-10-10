@@ -107,8 +107,32 @@ class CodeComparer {
                 compiledExecutables: null
             };
             this.tasks.set(normalizedKey, task);
+            // this.tasks had no delete/clear anywhere: the active-file listener
+            // created an entry for every source file ever activated, and Map
+            // preserves insertion order, so the oldest can be dropped safely.
+            // Never evict the active task or one that is still running.
+            this._evictOldTasks(normalizedKey);
         }
         return task;
+    }
+
+    _evictOldTasks(keepKey) {
+        const MAX_RETAINED_TASKS = 32;
+        while (this.tasks.size > MAX_RETAINED_TASKS) {
+            let oldestKey = null;
+            for (const [key, value] of this.tasks) {
+                if (key === keepKey || key === this.activeTaskKey) continue;
+                if (value && value.state && value.state.isRunning) continue;
+                oldestKey = key;
+                break;
+            }
+            if (oldestKey === null) break;
+            const stale = this.tasks.get(oldestKey);
+            if (stale && stale.compiledExecutables) {
+                try { this.cleanupCompiledExecutables({ compiledExecutables: stale.compiledExecutables }); } catch (_) { }
+            }
+            this.tasks.delete(oldestKey);
+        }
     }
 
     getActiveTask() {
